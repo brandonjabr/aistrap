@@ -1,0 +1,69 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: "0 6 * * 1"   # weekly: catches upstream breakage (new PyTorch/CUDA releases)
+  workflow_dispatch:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: shellcheck
+        run: shellcheck -S warning install.sh
+      - name: doctor.py compiles
+        run: python3 -m py_compile doctor.py
+      - name: PowerShell parses
+        shell: pwsh
+        run: |
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile("$PWD/install.ps1", [ref]$null, [ref]$errors) | Out-Null
+          if ($errors) { $errors | Format-List; exit 1 }
+
+  dry-run:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, ubuntu-24.04, ubuntu-24.04-arm, macos-latest]
+        gpu: ["", "nvidia:13.0", "nvidia:12.8", "amd"]
+        exclude:
+          - os: macos-latest
+            gpu: nvidia:13.0
+          - os: macos-latest
+            gpu: nvidia:12.8
+          - os: macos-latest
+            gpu: amd
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Plan (dry run, full profile)
+        env:
+          AISTRAP_SIMULATE_GPU: ${{ matrix.gpu }}
+        run: bash install.sh --dry-run --profile full
+
+  install-cpu:
+    # Real end-to-end install of the Python layer on a CPU runner.
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install (minimal profile, no system packages)
+        run: bash install.sh --profile minimal --no-system --backend cpu --yes
+      - name: aistrap doctor
+        run: ~/.local/bin/aistrap doctor
+      - name: Re-run is idempotent
+        run: bash install.sh --profile minimal --no-system --backend cpu --yes
+
+  windows-dry-run:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Plan (dry run)
+        shell: pwsh
+        run: ./install.ps1 -DryRun -Profile full
