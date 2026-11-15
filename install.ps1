@@ -300,17 +300,18 @@ switch ($Cmd) {
   }
   'version' { Write-Host "AIStrap $($state.version) (backend $($state.backend), profile $($state.profile))" }
   default {
-    Write-Host @'
-aistrap - AIStrap helper
-  aistrap doctor [env...]      health check: GPU, frameworks, quick benchmark
-  aistrap lab [args]           start JupyterLab (all env kernels available)
-  aistrap shell [env]          open a PowerShell with an env active (default: ai)
-  aistrap run ENV CMD...       run a command inside an env
-  aistrap add [-e ENV] PKG...  install extra packages (keeps the PyTorch build pinned)
-  aistrap envs                 list environments and framework versions
-  aistrap update               re-run the installer: newest builds/packages
-  aistrap uninstall            remove envs, helper and profile config
-'@
+    # (no nested here-string: it would terminate the outer one)
+    @(
+      "aistrap - AIStrap helper",
+      "  aistrap doctor [env...]      health check: GPU, frameworks, quick benchmark",
+      "  aistrap lab [args]           start JupyterLab (all env kernels available)",
+      "  aistrap shell [env]          open a PowerShell with an env active (default: ai)",
+      "  aistrap run ENV CMD...       run a command inside an env",
+      "  aistrap add [-e ENV] PKG...  install extra packages (keeps the PyTorch build pinned)",
+      "  aistrap envs                 list environments and framework versions",
+      "  aistrap update               re-run the installer: newest builds/packages",
+      "  aistrap uninstall            remove envs, helper and profile config"
+    ) | ForEach-Object { Write-Host $_ }
   }
 }
 '@
